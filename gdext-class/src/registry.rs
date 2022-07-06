@@ -2,8 +2,7 @@ use crate::private::as_storage;
 use crate::storage::InstanceStorage;
 use crate::traits::*;
 
-use gdext_sys as sys;
-use sys::interface_fn;
+use gdext_sys::interface_fn;
 
 pub fn register_class<T: GodotExtensionClass + GodotExtensionClassMethods + GodotMethods>() {
     let creation_info = sys::GDNativeExtensionClassCreationInfo {
@@ -85,6 +84,7 @@ pub fn register_class<T: GodotExtensionClass + GodotExtensionClassMethods + Godo
                 instance: sys::GDExtensionClassInstancePtr,
             ) {
                 let storage = as_storage::<T>(instance);
+
                 Box::from_raw(storage);
             }
             free::<T>
@@ -95,6 +95,7 @@ pub fn register_class<T: GodotExtensionClass + GodotExtensionClassMethods + Godo
                 p_name: *const std::os::raw::c_char,
             ) -> sys::GDNativeExtensionClassCallVirtual {
                 let name = std::ffi::CStr::from_ptr(p_name);
+
                 T::virtual_call(name.to_str().unwrap())
             }
             get_virtual::<T>

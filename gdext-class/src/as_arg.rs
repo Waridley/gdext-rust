@@ -1,7 +1,6 @@
-use gdext_sys as sys;
-use sys::GodotFfi;
+use gdext_sys::GodotFfi;
 
-use crate::{EngineClass, GodotClass, Obj};
+use crate::{sys, EngineClass, GodotClass, Obj};
 
 mod private {
     pub trait Sealed {}

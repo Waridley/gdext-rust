@@ -18,6 +18,7 @@ pub struct Obj<T: GodotClass> {
     // Hence separate sys() for GDNativeTypePtr, and obj_sys() for GDNativeObjectPtr.
     // The former is the standard FFI type, while the latter is used in object-specific GDExtension APIs.
     opaque: OpaqueObject,
+
     _marker: PhantomData<*const T>,
 }
 

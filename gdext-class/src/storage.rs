@@ -10,7 +10,10 @@ pub struct InstanceStorage<T: GodotClass> {
     refcount: i32,
 }
 
-impl<T: GodotMethods + GodotClass> InstanceStorage<T> {
+impl<T> InstanceStorage<T>
+where
+    T: GodotMethods + GodotClass,
+{
     pub fn construct_default(base: sys::GDNativeObjectPtr) -> Self {
         // TODO find a user-friendly repr for base (Obj? T::Base? etc)
         let instance = T::construct(base);

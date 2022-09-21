@@ -1,9 +1,8 @@
-use gdext_builtin::{
-    gdext_init, gdext_print_warning, string::GodotString, variant::Variant, vector2::Vector2,
-    vector3::Vector3, InitLevel,
-};
+use std::ffi::CStr;
+use std::fmt::{Debug, Formatter};
+use gdext_builtin::{gdext_init, gdext_print_warning, string::GodotString, variant::Variant, vector2::Vector2, vector3::Vector3, InitLevel, PtrCallArg};
 use gdext_class::*;
-use gdext_sys::{self as sys, interface_fn};
+use gdext_sys::{self as sys, GDNativeMethodBindPtr, GDNativeObjectPtr, GDNativeTypePtr, interface_fn};
 
 pub struct Node3D(sys::GDNativeObjectPtr);
 
@@ -24,6 +23,60 @@ impl GodotClass for Node3D {
 
     fn upcast_mut(&mut self) -> &mut Self::Base {
         self
+    }
+}
+
+pub struct InputEvent(GDNativeObjectPtr);
+
+impl GodotClass for InputEvent {
+    type Base = Self;
+    
+    fn class_name() -> String {
+        "InputEvent".to_string()
+    }
+    
+    fn native_object_ptr(&self) -> sys::GDNativeObjectPtr {
+        self.0
+    }
+    
+    fn upcast(&self) -> &Self::Base {
+        self
+    }
+    
+    fn upcast_mut(&mut self) -> &mut Self::Base {
+        self
+    }
+}
+
+
+impl PtrCallArg for InputEvent {
+    unsafe fn from_ptr_call_arg(arg: *const GDNativeTypePtr) -> Self {
+        Self(*((*arg) as *mut GDNativeObjectPtr))
+    }
+    
+    unsafe fn to_ptr_call_arg(self, arg: GDNativeTypePtr) {
+        *(arg as *mut GDNativeObjectPtr) = self.0;
+    }
+}
+
+impl Debug for InputEvent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut out = GodotString::new();
+        unsafe {
+            let object_to_string: GDNativeMethodBindPtr = interface_fn!(classdb_get_method_bind)(
+                CStr::from_bytes_with_nul_unchecked(b"Object\0").as_ptr(),
+                CStr::from_bytes_with_nul_unchecked(b"to_string\0").as_ptr(),
+                2841200299,
+            );
+            
+            interface_fn!(object_method_bind_ptrcall)(
+                object_to_string,
+                self.0,
+                &[] as _,
+                out.as_mut_ptr(),
+            );
+        }
+        write!(f, "{out}")
     }
 }
 
@@ -84,6 +137,10 @@ impl RustTest {
             eprintln!("Boop! {}", self.time);
         }
     }
+    
+    fn _input(&mut self, event: InputEvent) {
+        println!("{event:?}");
+    }
 }
 
 impl GodotExtensionClassMethods for RustTest {
@@ -91,6 +148,7 @@ impl GodotExtensionClassMethods for RustTest {
         match name {
             "_ready" => gdext_virtual_method_body!(RustTest, fn _ready(&mut self)),
             "_process" => gdext_virtual_method_body!(RustTest, fn _process(&mut self, delta: f64)),
+            "_input" => gdext_virtual_method_body!(RustTest, fn _input(&self, event: InputEvent)),
             _ => None,
         }
     }
@@ -119,9 +177,13 @@ gdext_init!(gdext_rust_test, |init: &mut gdext_builtin::InitOptions| {
 });
 
 fn variant_tests() {
-    let _v = Variant::nil();
+    dbg!("running variant tests...");
 
-    let _v = Variant::from(false);
+    let v = Variant::nil();
+    dbg!(v);
+
+    let v = Variant::from(false);
+    dbg!(v);
 
     {
         let vec = Vector2::new(1.0, 4.0);

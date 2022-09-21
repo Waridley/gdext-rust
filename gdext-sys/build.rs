@@ -1,6 +1,9 @@
 use std::{env, path::PathBuf};
 
 fn main() {
+    println!("cargo:rerun-if-changed=../thirdparty/godot-headers/extension_api.json");
+    println!("cargo:rerun-if-changed=../thirdparty/godot-headers/godot/gdnative_interface.h");
+    
     let bindings = bindgen::Builder::default()
         .header("../thirdparty/godot-headers/godot/gdnative_interface.h")
         // Tell cargo to invalidate the built crate whenever any of the

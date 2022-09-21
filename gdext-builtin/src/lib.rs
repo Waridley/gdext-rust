@@ -8,6 +8,7 @@ pub mod vector3;
 pub mod macros;
 
 use std::collections::BTreeMap;
+use std::panic::UnwindSafe;
 
 pub use glam;
 
@@ -17,7 +18,7 @@ pub enum InitLevel {
     Servers,
     Scene,
     Editor,
-    Driver,
+    // Driver,
 }
 
 impl InitLevel {
@@ -28,7 +29,7 @@ impl InitLevel {
             gdext_sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_SERVERS => Self::Servers,
             gdext_sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_SCENE => Self::Scene,
             gdext_sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_EDITOR => Self::Editor,
-            gdext_sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_DRIVER => Self::Driver,
+            // gdext_sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_DRIVER => Self::Driver,
             _ => Self::Scene,
         }
     }
@@ -39,14 +40,14 @@ impl InitLevel {
             Self::Servers => gdext_sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_SERVERS,
             Self::Scene => gdext_sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_SCENE,
             Self::Editor => gdext_sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_EDITOR,
-            Self::Driver => gdext_sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_DRIVER,
+            // Self::Driver => gdext_sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_DRIVER,
         }
     }
 }
 
 pub struct InitOptions {
-    init_levels: BTreeMap<InitLevel, Box<dyn FnOnce() + 'static>>,
-    deinit_levels: BTreeMap<InitLevel, Box<dyn FnOnce() + 'static>>,
+    init_levels: BTreeMap<InitLevel, Box<dyn FnOnce() + UnwindSafe + 'static>>,
+    deinit_levels: BTreeMap<InitLevel, Box<dyn FnOnce() + UnwindSafe + 'static>>,
     lowest_level: InitLevel,
 }
 
@@ -59,12 +60,12 @@ impl InitOptions {
         }
     }
 
-    pub fn register_init_function(&mut self, level: InitLevel, f: impl FnOnce() + 'static) {
+    pub fn register_init_function(&mut self, level: InitLevel, f: impl FnOnce() + UnwindSafe + 'static) {
         self.init_levels.insert(level, Box::new(f));
         self.lowest_level = self.lowest_level.min(level);
     }
 
-    pub fn register_deinit_function(&mut self, level: InitLevel, f: impl FnOnce() + 'static) {
+    pub fn register_deinit_function(&mut self, level: InitLevel, f: impl FnOnce() + UnwindSafe + 'static) {
         self.deinit_levels.insert(level, Box::new(f));
     }
 
@@ -98,17 +99,19 @@ pub static mut INIT_OPTIONS: Option<InitOptions> = None;
 macro_rules! gdext_init {
     ($name:ident, $f:expr) => {
         #[no_mangle]
-        unsafe extern "C" fn gdext_rust_test(
+        unsafe extern "C" fn $name(
             interface: *const gdext_sys::GDNativeInterface,
             library: gdext_sys::GDNativeExtensionClassLibraryPtr,
             init: *mut gdext_sys::GDNativeInitialization,
-        ) {
+        ) -> bool {
             gdext_sys::set_interface(interface);
             gdext_sys::set_library(library);
 
             let mut init_options = $crate::InitOptions::new();
 
-            ($f)(&mut init_options);
+            std::panic::catch_unwind(
+                || ($f)(&mut init_options)
+            ).ok();
 
             *init = sys::GDNativeInitialization {
                 minimum_initialization_level: init_options.lowest_init_level().to_sys(),
@@ -118,6 +121,7 @@ macro_rules! gdext_init {
             };
 
             $crate::INIT_OPTIONS = Some(init_options);
+            true
         }
 
         unsafe extern "C" fn initialise(

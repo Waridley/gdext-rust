@@ -33,6 +33,9 @@ pub fn register_class<T: GodotExtensionClass + GodotExtensionClassMethods>() {
     let creation_info = sys::GDNativeExtensionClassCreationInfo {
         set_func: None,
         get_func: None,
+        get_rid_func: None,
+        property_can_revert_func: None,
+        property_get_revert_func: None,
         get_property_list_func: None,
         free_property_list_func: None,
         notification_func: None,
@@ -95,7 +98,7 @@ pub fn register_class<T: GodotExtensionClass + GodotExtensionClassMethods>() {
                 _class_user_data: *mut std::ffi::c_void,
                 instance: *mut std::ffi::c_void,
             ) {
-                Box::from_raw(instance as *mut T);
+                drop(Box::from_raw(instance as *mut T));
             }
             free::<T>
         }),

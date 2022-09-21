@@ -1,6 +1,9 @@
+use std::fmt::{Debug, Formatter};
 use std::mem::MaybeUninit;
 
-use gdext_sys::{self as sys, interface_fn};
+use gdext_sys::{self as sys, GDNativeTypePtr, GDNativeVariantPtr, interface_fn};
+use crate::PtrCallArg;
+use crate::string::GodotString;
 
 #[cfg(not(feature = "real_is_double"))]
 const SIZE_IN_BYTES: u64 = 24;
@@ -18,12 +21,12 @@ impl Variant {
 
     #[doc(hidden)]
     pub fn as_mut_ptr(&mut self) -> sys::GDNativeVariantPtr {
-        self.0.as_ptr() as *mut _
+        self.0.as_mut_ptr() as _
     }
 
     #[doc(hidden)]
     pub fn as_ptr(&self) -> sys::GDNativeVariantPtr {
-        self.0.as_ptr() as *mut _
+        self.0.as_ptr() as _
     }
 
     pub fn nil() -> Self {
@@ -32,6 +35,38 @@ impl Variant {
             interface_fn!(variant_new_nil)(v.as_mut_ptr());
             v
         }
+    }
+    
+    #[doc(hidden)]
+    pub unsafe fn clone_from_ptr(ptr: sys::GDNativeVariantPtr) -> Self {
+        let mut ret = Self::uninit();
+        ret.0.write(std::ptr::read(ptr as *const _));
+        ret
+    }
+    
+    #[doc(hidden)]
+    pub unsafe fn clone_into_ptr(&self, ptr: sys::GDNativeVariantPtr) {
+        std::ptr::copy_nonoverlapping(self.as_ptr(), ptr, SIZE_IN_BYTES as usize)
+    }
+}
+
+impl PtrCallArg for Variant {
+    unsafe fn from_ptr_call_arg(arg: *const GDNativeTypePtr) -> Self {
+        Variant::clone_from_ptr((*arg) as GDNativeVariantPtr)
+    }
+    
+    unsafe fn to_ptr_call_arg(self, arg: GDNativeTypePtr) {
+        Variant::clone_into_ptr(&self, arg as GDNativeVariantPtr)
+    }
+}
+
+impl Debug for Variant {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut string = GodotString::new();
+        unsafe {
+            interface_fn!(variant_stringify)(self.as_ptr(), string.as_mut_ptr());
+        }
+        write!(f, "{string}")
     }
 }
 
@@ -54,7 +89,8 @@ impl Drop for Variant {
 }
 
 mod conversions {
-    use gdext_sys::{self as sys, interface_fn};
+    use std::mem::MaybeUninit;
+    use gdext_sys::{self as sys, GDNativeBool, interface_fn};
     use once_cell::sync::Lazy;
 
     use crate::{string::GodotString, vector2::Vector2, vector3::Vector3};
@@ -72,8 +108,9 @@ mod conversions {
                     )
                     .unwrap()
                 });
+                let b = b as GDNativeBool;
                 let mut v = Variant::uninit();
-                CONSTR(v.as_mut_ptr(), &b as *const _ as *mut _);
+                CONSTR(v.as_mut_ptr(), &b as *const _ as _);
                 v
             }
         }
@@ -90,8 +127,9 @@ mod conversions {
                     )
                     .unwrap()
                 });
-                let mut res = false;
-                CONSTR(&mut res as *mut _ as *mut _, v.as_ptr());
+                let mut res = MaybeUninit::<GDNativeBool>::uninit();
+                CONSTR(res.as_mut_ptr() as *mut _, v.as_ptr());
+                let res = res.assume_init() != 0;
                 res
             }
         }

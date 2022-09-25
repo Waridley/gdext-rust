@@ -151,9 +151,9 @@ pub fn ident_escaped(s: &str) -> Ident {
 }
 
 pub fn c_str(s: &str) -> TokenStream {
-    let s = Literal::string(&format!("{}\0", s));
+    let s = Literal::byte_string(format!("{}\0", s).as_bytes());
     quote! {
-        #s.as_ptr() as *const i8
+        ::std::ffi::CStr::from_bytes_with_nul(#s).unwrap().as_ptr()
     }
 }
 

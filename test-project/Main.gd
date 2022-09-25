@@ -16,10 +16,17 @@ func _init():
 
 func _ready():
 	print("[GDScript] _ready")
+
+	print()
+	rust_test.print_input_map_actions()
+	print()
+
+	rust_test.name = "rust_test"
+
 	print("self._to_string(): ", self)
 
-#	var msg := rust_test.test_method(12, "hello from GDScript")
-#	print(msg)
+	var msg := rust_test.test_method(12, "hello from GDScript")
+	print(msg)
 
 	var node = Node3D.new()
 	#print("Correct to_global(): ", node.to_global(Vector3(2.0, 3.0, 4.0)))
@@ -28,6 +35,7 @@ func _ready():
 	print("<--")
 
 	rust_test.call_node_method(node)
+	node.free()
 	#rust_test.call_base_method()
 	print("-->")
 
@@ -40,10 +48,13 @@ func _ready():
 	print(res_vec)
 
 	print_instance_id(self, "self")
-	print_instance_id(GdClass.new(), "new")
+	var gd_class = GdClass.new()
+	print_instance_id(gd_class, "new")
+	gd_class.unreference()
 	print_instance_id($MeshInstance3D, "mesh")
 	print_instance_id($WorldEnvironment, "env")
 	print_instance_id($DirectionalLight3D, "light")
+
 
 	print()
 	print("----------------------------")
@@ -79,8 +90,8 @@ func _ready():
 	print()
 
 	print("[GDScript] end _ready")
-	get_tree().quit()
-	print("[GDScript] after quit")
+#	get_tree().quit()
+#	print("[GDScript] after quit")
 
 
 func print_instance_id(obj, msg=null):

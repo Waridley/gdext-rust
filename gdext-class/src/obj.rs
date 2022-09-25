@@ -1,6 +1,7 @@
 use crate::property_info::PropertyInfoBuilder;
 use crate::storage::InstanceStorage;
 use crate::{ClassName, GodotClass};
+use std::fmt::{Debug, Formatter};
 
 use gdext_builtin::Variant;
 use gdext_sys as sys;
@@ -9,6 +10,7 @@ use sys::types::OpaqueObject;
 use sys::{impl_ffi_as_opaque_pointer, interface_fn, static_assert_eq_size, GodotFfi};
 
 use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
 
 // TODO which bounds to add on struct itself?
 #[repr(transparent)] // needed for safe transmute between object and a field, see EngineClass
@@ -30,7 +32,7 @@ static_assert_eq_size!(
 );
 
 impl<T: GodotClass> Obj<T> {
-    pub fn new(_rust_obj: T) -> Self {
+    pub fn new() -> Self {
         let class_name = ClassName::new::<T>();
         let ptr = unsafe { interface_fn!(classdb_construct_object)(class_name.c_str()) };
 
@@ -146,5 +148,25 @@ impl<T: GodotClass> From<&Obj<T>> for Variant {
 impl<T: GodotClass> PropertyInfoBuilder for Obj<T> {
     fn variant_type() -> gdext_sys::GDNativeVariantType {
         gdext_sys::GDNativeVariantType_GDNATIVE_VARIANT_TYPE_OBJECT
+    }
+}
+
+impl<T: GodotClass> Deref for Obj<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner()
+    }
+}
+
+impl<T: GodotClass> DerefMut for Obj<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.inner_mut()
+    }
+}
+
+impl<T: GodotClass + Debug> Debug for Obj<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.inner())
     }
 }

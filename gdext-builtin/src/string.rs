@@ -43,7 +43,12 @@ impl GodotString {
 
     #[doc(hidden)]
     pub fn string_sys(&self) -> sys::GDNativeStringPtr {
-        self.sys() as sys::GDNativeStringPtr
+        self.sys() as _
+    }
+
+    #[doc(hidden)]
+    pub fn string_sys_mut(&mut self) -> sys::GDNativeStringPtr {
+        self.sys_mut() as _
     }
 
     #[doc(hidden)]
@@ -117,7 +122,7 @@ impl FromStr for GodotString {
         let b = s.as_bytes();
         unsafe {
             interface_fn!(string_new_with_utf8_chars_and_len)(
-                &mut opaque as *mut _ as sys::GDNativeStringPtr,
+                opaque.as_mut_ptr() as sys::GDNativeStringPtr,
                 b.as_ptr() as *mut _,
                 b.len() as i64,
             );
@@ -133,7 +138,7 @@ impl Drop for GodotString {
     fn drop(&mut self) {
         unsafe {
             let destructor = sys::get_cache().string_destroy;
-            destructor(self.sys_mut());
+            // destructor(self.sys_mut()); // temporarily leaking to prevent segfaults
         }
     }
 }

@@ -1,9 +1,15 @@
-use gdext_builtin::{gdext_init, GodotString, InitLevel, Variant, Vector2, Vector3};
+use gdext_builtin::{
+    gdext_init, Array, GodotString, InitLevel, StringName, Variant, Vector2, Vector3,
+};
 
-use gdext_class::api::Node3D;
+use gdext_class::api::{Engine, InputEvent, Node3D, RefCounted, SceneTree};
 use gdext_class::*;
 
 use gdext_sys as sys;
+use gdext_sys::{
+    get_cache, get_interface, GDNativeInt, GDNativeVariantType_GDNATIVE_VARIANT_TYPE_ARRAY,
+    GodotFfi,
+};
 use sys::interface_fn;
 
 // ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -70,7 +76,7 @@ impl RustTest {
     fn test_method(&mut self, some_int: u64, some_string: GodotString) -> GodotString {
         //let id = Obj::emplace(self).instance_id();
 
-        let some_string = some_string.clone();
+        // let some_string = some_string.clone();
 
         let msg = format!(
             "Hello from `RustTest.test_method()`:\
@@ -102,20 +108,18 @@ impl RustTest {
     fn return_obj(&self) -> Obj<Entity> {
         out!("[RustTest] return_obj()");
 
-        let rust_obj = Entity {
-            name: "New name!".to_string(),
-            hitpoints: 20,
-        };
-
         out!("-- new");
-        let r = Obj::new(rust_obj);
+        let mut r = Obj::<Entity>::new();
         out!("-- end new");
+
+        r.name = "New name!".to_string();
+        r.hitpoints = 20;
         r
     }
 
     fn find_obj(&self, instance_id: u64) -> Obj<Entity> {
         let obj = Obj::from_instance_id(instance_id).expect("Obj is null");
-        let inner = obj.inner();
+        let inner: &Entity = &*obj;
         out!(
             "[RustTest] find_obj():\n  id={},\n  obj={:?}",
             instance_id,
@@ -140,14 +144,55 @@ impl RustTest {
         println!("  instance_id: {}", node.instance_id());
 
         //let node = Obj::<Node3D>::from_instance_id(node.instance_id()).unwrap();
-        let node = Node3D::new();
-        let inner = node.inner();
+        // let node = Node3D::new();
         let arg = Vector3::new(11.0, 22.0, 33.0);
-        inner.set_position(arg);
+        node.set_position(arg);
 
-        let res = inner.get_position();
+        let res = node.get_position();
         println!("  get_position() == {res}");
+        node.queue_free();
         res
+    }
+
+    fn print_input_map_actions(&self) {
+        unsafe {
+            let call_fn = sys::interface_fn!(object_method_bind_ptrcall);
+
+            let imap = (get_interface().global_get_singleton.unwrap())(
+                c_str(b"InputMap\0"),
+            );
+
+            let input_map_get_actions = sys::interface_fn!(classdb_get_method_bind)(
+                c_str(b"InputMap\0"),
+                c_str(b"get_actions\0"),
+                2915620761,
+            );
+            let actions = <Array as sys::PtrCall>::ptrcall_read_init(|ret_ptr| {
+                (get_cache().array_construct_default)(ret_ptr, std::ptr::null());
+                call_fn(input_map_get_actions, imap, [].as_ptr(), ret_ptr);
+            });
+
+            let array_size = sys::interface_fn!(variant_get_ptr_builtin_method)(
+                GDNativeVariantType_GDNATIVE_VARIANT_TYPE_ARRAY,
+                c_str(b"size\0"),
+                3173160232,
+            )
+            .unwrap();
+            let size = <GDNativeInt as sys::PtrCall>::ptrcall_read_init(|ret_ptr| {
+                array_size(actions.sys(), [].as_ptr(), ret_ptr, 0);
+            });
+            let array_index = interface_fn!(array_operator_index);
+
+            for i in 0..size {
+                let action = array_index(actions.sys(), i);
+                let action = Variant::from_sys(action);
+                let action = StringName::from(&action);
+                println!(
+                    "action {i}: {}",
+                    <GodotString as From<StringName>>::from(action)
+                );
+            }
+        }
     }
 
     fn _ready(&mut self) {
@@ -163,6 +208,24 @@ impl RustTest {
             out!("[RustTest] _process(): {}", self.time);
         }
     }
+
+    fn _input(&self, event: Obj<InputEvent>) {
+        let text = event.as_text();
+        println!("{text}");
+
+        let ui_cancel = StringName::from(GodotString::from("ui_cancel"));
+        if event.is_action_pressed(ui_cancel, false, false) {
+            unsafe {
+                let engine = (get_interface().global_get_singleton.unwrap())(
+                    c_str(b"Engine\0"),
+                );
+                let engine = Obj::<Engine>::from_sys(engine);
+                let main_loop = engine.get_main_loop();
+                let tree = Obj::<SceneTree>::from_sys(main_loop.sys());
+                tree.quit(0);
+            }
+        }
+    }
 }
 
 impl GodotExtensionClassMethods for RustTest {
@@ -172,6 +235,9 @@ impl GodotExtensionClassMethods for RustTest {
         match name {
             "_ready" => gdext_virtual_method_body!(RustTest, fn _ready(&mut self)),
             "_process" => gdext_virtual_method_body!(RustTest, fn _process(&mut self, delta: f64)),
+            "_input" => {
+                gdext_virtual_method_body!(RustTest, fn _input(&self, event: Obj<InputEvent>))
+            }
             _ => None,
         }
     }
@@ -210,6 +276,10 @@ impl GodotExtensionClassMethods for RustTest {
         gdext_wrap_method!(RustTest,
             fn call_node_method(&self, node: Obj<Node3D>) -> Vector3
         );
+
+        gdext_wrap_method!(RustTest,
+            fn print_input_map_actions(&self)
+        );
     }
 }
 
@@ -219,7 +289,7 @@ impl GodotExtensionClassMethods for RustTest {
 #[derive(Debug)]
 #[allow(dead_code)] // TODO
 pub struct Entity {
-    // base: RefCounted,
+    base: Obj<RefCounted>,
     name: String,
     hitpoints: i32,
 }
@@ -229,6 +299,7 @@ impl GodotMethods for Entity {
         out!("[Entity] construct: base={base:?}");
 
         Entity {
+            base: unsafe { Obj::from_obj_sys(base) },
             name: "No name yet".to_string(),
             hitpoints: 100,
         }
@@ -348,4 +419,9 @@ fn variant_tests() {
         let x = Variant::from(true);
         dbg!(bool::from(&x));
     }
+}
+
+
+pub unsafe fn c_str(s: &[u8]) -> *const std::ffi::c_char {
+    std::ffi::CStr::from_bytes_with_nul_unchecked(s).as_ptr()
 }

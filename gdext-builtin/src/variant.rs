@@ -8,6 +8,10 @@ pub struct Variant {
 }
 
 impl Variant {
+    pub fn new() -> Self {
+        Self::nil()
+    }
+
     pub fn nil() -> Self {
         unsafe {
             Self::from_sys_init(|ptr| {
@@ -45,7 +49,7 @@ impl GodotFfi for Variant {
 
 mod conversions {
     use super::Variant;
-    use crate::{string::GodotString, vector2::Vector2, vector3::Vector3};
+    use crate::{string::GodotString, vector2::Vector2, vector3::Vector3, Array, StringName};
     use gdext_sys as sys;
     use sys::GodotFfi;
 
@@ -58,6 +62,7 @@ mod conversions {
                             let converter = sys::get_cache().$from_fn;
                             //converter(variant_ptr, &value as *const _ as *mut std::ffi::c_void);
                             converter(variant_ptr, &value as *const _ as sys::GDNativeTypePtr);
+                            ::std::mem::forget(value);
                             //converter(variant_ptr, value.sys()); // TODO: use trait?
                         })
                     }
@@ -101,6 +106,8 @@ mod conversions {
     impl_variant_conversions!(Vector2, vector2_to_variant, vector2_from_variant);
     impl_variant_conversions!(Vector3, vector3_to_variant, vector3_from_variant);
     impl_variant_conversions!(GodotString, string_to_variant, string_from_variant);
+    impl_variant_conversions!(StringName, string_name_to_variant, string_name_from_variant);
+    impl_variant_conversions!(Array, array_to_variant, array_from_variant);
 
     impl_variant_int_conversions!(u8);
     impl_variant_int_conversions!(u16);

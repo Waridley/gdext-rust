@@ -18,7 +18,7 @@ pub struct Opaque<const N: usize> {
 
 impl<const N: usize> Opaque<N> {
     pub unsafe fn with_init(init: impl FnOnce(*mut c_void)) -> Self {
-        let mut raw = MaybeUninit::<[u8; N]>::uninit();
+        let mut raw = MaybeUninit::<[u8; N]>::zeroed();
         init(raw.as_mut_ptr() as *mut c_void);
 
         Self {
@@ -28,7 +28,7 @@ impl<const N: usize> Opaque<N> {
     }
 
     pub unsafe fn with_value_init(init: impl FnOnce(*mut c_void)) -> Self {
-        let mut raw = MaybeUninit::<[u8; N]>::uninit();
+        let mut raw = MaybeUninit::<[u8; N]>::zeroed();
         init((raw.as_mut_ptr() as *mut *mut c_void).read());
 
         Self {

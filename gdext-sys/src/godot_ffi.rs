@@ -80,7 +80,7 @@ macro_rules! impl_ffi_as_opaque_pointer {
         }
 
         unsafe fn from_sys_init(init: impl FnOnce($Ptr)) -> Self {
-            let mut raw = std::mem::MaybeUninit::uninit();
+            let mut raw = std::mem::MaybeUninit::zeroed();
             init(raw.as_mut_ptr() as $Ptr);
 
             Self::from_opaque(raw.assume_init())

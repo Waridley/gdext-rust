@@ -73,8 +73,8 @@ pub struct Property {
 
 #[derive(Deserialize)]
 pub struct Signal {
-    name: String,
-    arguments: Option<Vec<MethodArg>>,
+    pub name: String,
+    pub arguments: Option<Vec<MethodArg>>,
 }
 
 #[derive(Deserialize)]

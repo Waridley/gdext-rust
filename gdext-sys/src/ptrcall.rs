@@ -16,7 +16,7 @@ where
     unsafe fn ptrcall_read(arg: sys::GDNativeTypePtr) -> Self;
 
     unsafe fn ptrcall_read_init(init: impl FnOnce(sys::GDNativeTypePtr)) -> Self {
-        let mut arg = MaybeUninit::uninit();
+        let mut arg = MaybeUninit::zeroed();
         init(arg.as_mut_ptr() as *mut _);
 
         //let arg = arg.assume_init();

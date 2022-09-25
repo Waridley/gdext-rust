@@ -1,6 +1,7 @@
 use crate::private::as_storage;
 use crate::storage::InstanceStorage;
 use crate::traits::*;
+use gdext_sys as sys;
 
 use gdext_sys::interface_fn;
 
@@ -10,6 +11,8 @@ pub fn register_class<T: GodotExtensionClass + GodotExtensionClassMethods + Godo
         get_func: None,
         get_property_list_func: None,
         free_property_list_func: None,
+        property_can_revert_func: None,
+        property_get_revert_func: None,
         notification_func: None,
         to_string_func: if T::has_to_string() {
             Some({
@@ -85,7 +88,7 @@ pub fn register_class<T: GodotExtensionClass + GodotExtensionClassMethods + Godo
             ) {
                 let storage = as_storage::<T>(instance);
 
-                Box::from_raw(storage);
+                let _ = Box::from_raw(storage);
             }
             free::<T>
         }),

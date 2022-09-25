@@ -1,5 +1,6 @@
 //! Generates extensions.rs and many globally accessible symbols.
 
+use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::HashMap;
@@ -261,10 +262,36 @@ fn make_construct_fns(
     let construct_copy_error = format_load_error(&construct_copy);
     let variant_type = &type_names.sys_variant_type;
 
+    let mut more_decls = vec![];
+    let mut more_inits = vec![];
+    for i in 2..constructors.len() {
+        let ctor = &constructors[i];
+        if let Some(args) = &ctor.arguments {
+            let ident = if args.len() == 1 {
+                let arg_type = &args[0].type_.to_case(Case::Snake);
+                format_ident!("{}_from_{arg_type}", type_names.snake_case)
+            } else {
+                let arg_names = args.iter().map(|arg| &*arg.name).collect::<Vec<_>>();
+                format_ident!("{}_from_{}", type_names.snake_case, arg_names.join("_"))
+            };
+            more_decls.push(quote! {
+                pub #ident: unsafe extern "C" fn(GDNativeTypePtr, *const GDNativeTypePtr),
+            });
+            let i = i as i32;
+            more_inits.push(quote! {
+               #ident: {
+                    let ctor_fn = interface.variant_get_ptr_constructor.unwrap();
+                    ctor_fn(crate:: #variant_type, #i).expect(#construct_default_error)
+                },
+            });
+        }
+    }
+
     // Generic signature:  fn(base: GDNativeTypePtr, args: *const GDNativeTypePtr)
     let decls = quote! {
         pub #construct_default: unsafe extern "C" fn(GDNativeTypePtr, *const GDNativeTypePtr),
         pub #construct_copy: unsafe extern "C" fn(GDNativeTypePtr, *const GDNativeTypePtr),
+        #(#more_decls)*
     };
 
     let inits = quote! {
@@ -276,6 +303,7 @@ fn make_construct_fns(
             let ctor_fn = interface.variant_get_ptr_constructor.unwrap();
             ctor_fn(crate:: #variant_type, 1i32).expect(#construct_copy_error)
         },
+        #(#more_inits)*
     };
 
     (decls, inits)

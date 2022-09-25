@@ -59,6 +59,20 @@ impl GodotClass for () {
     }
 }
 
+impl EngineClass for () {
+    fn from_object_ptr(_object_ptr: sys::GDNativeObjectPtr) -> Self {
+        ()
+    }
+
+    fn as_object_ptr(&self) -> sys::GDNativeObjectPtr {
+        std::ptr::null_mut()
+    }
+
+    fn as_type_ptr(&self) -> sys::GDNativeTypePtr {
+        std::ptr::null_mut()
+    }
+}
+
 pub trait GodotMethods: GodotClass {
     //fn construct(base: Obj<Self::Base>) -> Self;
     fn construct(base: sys::GDNativeObjectPtr) -> Self;

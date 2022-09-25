@@ -105,17 +105,20 @@ pub static mut INIT_OPTIONS: Option<InitOptions> = None;
 macro_rules! gdext_init {
     ($name:ident, $f:expr) => {
         #[no_mangle]
-        unsafe extern "C" fn gdext_rust_test(
+        unsafe extern "C" fn $name(
             interface: *const ::gdext_sys::GDNativeInterface,
             library: ::gdext_sys::GDNativeExtensionClassLibraryPtr,
             init: *mut ::gdext_sys::GDNativeInitialization,
-        ) {
+        ) -> bool {
+            let mut result = true;
+
             ::gdext_sys::set_interface(interface);
             ::gdext_sys::set_library(library);
 
             let mut init_options = $crate::InitOptions::new();
 
-            ($f)(&mut init_options);
+            ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| ($f)(&mut init_options)))
+                .unwrap_or_else(|_| result = false);
 
             *init = ::gdext_sys::GDNativeInitialization {
                 minimum_initialization_level: init_options.lowest_init_level().to_sys(),
@@ -125,6 +128,8 @@ macro_rules! gdext_init {
             };
 
             $crate::INIT_OPTIONS = Some(init_options);
+
+            result
         }
 
         unsafe extern "C" fn initialise(

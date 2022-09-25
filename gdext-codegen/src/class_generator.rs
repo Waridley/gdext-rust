@@ -9,7 +9,7 @@ use crate::api_parser::*;
 use crate::util::{c_str, ident, ident_escaped, strlit, to_module_name};
 
 // Workaround for limiting number of types as long as implementation is incomplete
-const KNOWN_TYPES: [&str; 11] = [
+const KNOWN_TYPES: [&str; 20] = [
     // builtin:
     "bool",
     "int",
@@ -20,12 +20,35 @@ const KNOWN_TYPES: [&str; 11] = [
     "Color",
     // classes:
     "Object",
+    "Resource",
     "Node",
     "Node3D",
     "RefCounted",
+    "InputEvent",
+    "StringName",
+    "Transform2D",
+    "Vector2",
+    "MainLoop",
+    "SceneTree",
+    "Engine",
+    "InputMap",
 ];
 
-const SELECTED: [&str; 4] = ["Object", "Node", "Node3D", "RefCounted"];
+const SELECTED: [&str; 13] = [
+    "Object",
+    "Resource",
+    "Node",
+    "Node3D",
+    "RefCounted",
+    "InputEvent",
+    "StringName",
+    "Transform2D",
+    "Vector2",
+    "MainLoop",
+    "SceneTree",
+    "Engine",
+    "InputMap",
+];
 
 #[derive(Default)]
 struct Context<'a> {
@@ -100,9 +123,9 @@ fn make_class(class: &Class, ctx: &Context) -> TokenStream {
     quote! {
         use gdext_sys as sys;
         use gdext_builtin::*;
+        use super::*;
         use crate::{Obj, AsArg};
 
-        #[derive(Debug)]
         #[repr(transparent)]
         pub struct #name {
             object_ptr: sys::GDNativeObjectPtr,
@@ -134,6 +157,20 @@ fn make_class(class: &Class, ctx: &Context) -> TokenStream {
             fn as_type_ptr(&self) -> sys::GDNativeTypePtr {
                 // TODO:mut
                 &self.object_ptr as *const sys::GDNativeObjectPtr as sys::GDNativeTypePtr
+            }
+        }
+        impl ::std::ops::Deref for #name {
+            type Target = #base;
+
+            fn deref(&self) -> &Self::Target {
+                unsafe { &*(self as *const Self as *const _) }
+            }
+        }
+        impl ::std::fmt::Debug for #name {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                use crate::traits::EngineClass;
+                // write!(f, "{}", self.to_string()) // TODO: this segfaults
+                write!(f, concat!("<", stringify!(#name), "#{:?}>"), self.as_object_ptr())
             }
         }
     }

@@ -92,6 +92,7 @@ macro_rules! gdext_wrap_method_inner {
                         )*);
 
                         <$retty as sys::PtrCall>::ptrcall_write(&ret_val, ret);
+                        ::std::mem::forget(ret_val);
                     }
 
                     call

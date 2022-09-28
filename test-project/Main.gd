@@ -11,6 +11,8 @@ var e
 func _init():
 	print("[GDScript] _init")
 
+	connect("unload", self._unload, CONNECT_DEFERRED)
+	
 	print("[GDScript] end _init")
 
 
@@ -93,6 +95,29 @@ func _ready():
 #	get_tree().quit()
 #	print("[GDScript] after quit")
 
+signal unload
+var loaded = true
+
+func _unload():
+	var status
+	if loaded:
+		print("unloading...")
+		rust_test.free() # safety: only calling deferred
+		status = NativeExtensionManager.unload_extension("res://gdext-rust-test.gdextension")
+		loaded = false
+	else:
+		print("loading...")
+		status = NativeExtensionManager.load_extension("res://gdext-rust-test.gdextension")
+		rust_test = RustTest.new()
+		add_child(rust_test)
+		loaded = true
+	
+	print(status)
+
+func _input(event):
+	if event.is_action_pressed("ui_accept"):
+		emit_signal("unload")
+		
 
 func print_instance_id(obj, msg=null):
 	var full = obj.get_instance_id()

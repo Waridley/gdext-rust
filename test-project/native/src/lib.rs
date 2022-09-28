@@ -2,14 +2,11 @@ use gdext_builtin::{
     gdext_init, Array, GodotString, InitLevel, StringName, Variant, Vector2, Vector3,
 };
 
-use gdext_class::api::{Engine, InputEvent, Node3D, RefCounted, SceneTree};
+use gdext_class::api::{Engine, InputEvent, InputMap, Node3D, RefCounted, SceneTree};
 use gdext_class::*;
 
 use gdext_sys as sys;
-use gdext_sys::{
-    get_cache, get_interface, GDNativeInt, GDNativeVariantType_GDNATIVE_VARIANT_TYPE_ARRAY,
-    GodotFfi,
-};
+use gdext_sys::{get_cache, get_interface, GodotFfi};
 use sys::interface_fn;
 
 // ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -80,7 +77,7 @@ impl RustTest {
 
         let msg = format!(
             "Hello from `RustTest.test_method()`:\
-            \n\tyou passed some_int={some_int} and some_string={some_string}"
+			\n\tyou passed some_int={some_int} and some_string={some_string}"
         );
         msg.into()
     }
@@ -158,35 +155,23 @@ impl RustTest {
         unsafe {
             let call_fn = sys::interface_fn!(object_method_bind_ptrcall);
 
-            let imap = (get_interface().global_get_singleton.unwrap())(
-                c_str(b"InputMap\0"),
-            );
+            let imap = (get_interface().global_get_singleton.unwrap())(c_str(b"InputMap\0"));
 
+            // TODO: Why isn't this being generated?
             let input_map_get_actions = sys::interface_fn!(classdb_get_method_bind)(
                 c_str(b"InputMap\0"),
                 c_str(b"get_actions\0"),
                 2915620761,
             );
+
             let actions = <Array as sys::PtrCall>::ptrcall_read_init(|ret_ptr| {
                 (get_cache().array_construct_default)(ret_ptr, std::ptr::null());
                 call_fn(input_map_get_actions, imap, [].as_ptr(), ret_ptr);
             });
 
-            let array_size = sys::interface_fn!(variant_get_ptr_builtin_method)(
-                GDNativeVariantType_GDNATIVE_VARIANT_TYPE_ARRAY,
-                c_str(b"size\0"),
-                3173160232,
-            )
-            .unwrap();
-            let size = <GDNativeInt as sys::PtrCall>::ptrcall_read_init(|ret_ptr| {
-                array_size(actions.sys(), [].as_ptr(), ret_ptr, 0);
-            });
-            let array_index = interface_fn!(array_operator_index);
-
-            for i in 0..size {
-                let action = array_index(actions.sys(), i);
-                let action = Variant::from_sys(action);
-                let action = StringName::from(&action);
+            for i in 0..actions.size() {
+                let action = &actions[i];
+                let action = StringName::from(action);
                 println!(
                     "action {i}: {}",
                     <GodotString as From<StringName>>::from(action)
@@ -216,9 +201,7 @@ impl RustTest {
         let ui_cancel = StringName::from(GodotString::from("ui_cancel"));
         if event.is_action_pressed(ui_cancel, false, false) {
             unsafe {
-                let engine = (get_interface().global_get_singleton.unwrap())(
-                    c_str(b"Engine\0"),
-                );
+                let engine = (get_interface().global_get_singleton.unwrap())(c_str(b"Engine\0"));
                 let engine = Obj::<Engine>::from_sys(engine);
                 let main_loop = engine.get_main_loop();
                 let tree = Obj::<SceneTree>::from_sys(main_loop.sys());
@@ -373,11 +356,15 @@ impl Entity {
 // Init + Test
 
 gdext_init!(gdext_rust_test, |init: &mut gdext_builtin::InitOptions| {
-    init.register_init_function(InitLevel::Scene, || {
+    init.register_init_function(InitLevel::default(), || {
         register_class::<RustTest>();
         register_class::<Entity>();
 
         variant_tests();
+    });
+    init.register_deinit_function(InitLevel::default(), || {
+        unregister_class::<RustTest>();
+        unregister_class::<Entity>();
     });
 });
 
@@ -420,7 +407,6 @@ fn variant_tests() {
         dbg!(bool::from(&x));
     }
 }
-
 
 pub unsafe fn c_str(s: &[u8]) -> *const std::ffi::c_char {
     std::ffi::CStr::from_bytes_with_nul_unchecked(s).as_ptr()

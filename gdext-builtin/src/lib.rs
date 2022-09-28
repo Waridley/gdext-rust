@@ -1,32 +1,21 @@
 #![macro_use]
 
 pub mod macros;
-
-mod color;
-mod others;
-mod string;
-mod variant;
-mod vector2;
-mod vector3;
-
-pub use color::*;
-pub use others::*;
-pub use string::*;
-pub use variant::*;
-pub use vector2::*;
-pub use vector3::*;
+mod types;
+mod util;
+pub use types::*;
 
 pub use glam;
 
 use gdext_sys as sys;
-use std::collections::BTreeMap;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[repr(u32)]
 pub enum InitLevel {
-    Core,
-    Servers,
-    Scene,
-    Editor,
+    Core = sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_CORE,
+    Servers = sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_SERVERS,
+    Scene = sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_SCENE,
+    Editor = sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_EDITOR,
 }
 
 impl InitLevel {
@@ -41,19 +30,22 @@ impl InitLevel {
         }
     }
     #[doc(hidden)]
-    pub fn to_sys(self) -> gdext_sys::GDNativeInitializationLevel {
-        match self {
-            Self::Core => sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_CORE,
-            Self::Servers => sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_SERVERS,
-            Self::Scene => sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_SCENE,
-            Self::Editor => sys::GDNativeInitializationLevel_GDNATIVE_INITIALIZATION_EDITOR,
-        }
+    pub fn to_sys(self) -> sys::GDNativeInitializationLevel {
+        self as _
     }
 }
 
+impl Default for InitLevel {
+    fn default() -> Self {
+        Self::Scene
+    }
+}
+
+const LEVELS: usize = sys::GDNativeInitializationLevel_GDNATIVE_MAX_INITIALIZATION_LEVEL as usize;
+
 pub struct InitOptions {
-    init_levels: BTreeMap<InitLevel, Box<dyn FnOnce() + 'static>>,
-    deinit_levels: BTreeMap<InitLevel, Box<dyn FnOnce() + 'static>>,
+    init_levels: [Option<Box<dyn FnMut() + 'static>>; LEVELS],
+    deinit_levels: [Option<Box<dyn FnMut() + 'static>>; LEVELS],
     lowest_level: InitLevel,
 }
 
@@ -66,13 +58,20 @@ impl InitOptions {
         }
     }
 
-    pub fn register_init_function(&mut self, level: InitLevel, f: impl FnOnce() + 'static) {
-        self.init_levels.insert(level, Box::new(f));
+    pub fn register_init_function(&mut self, level: InitLevel, f: impl FnMut() + 'static) {
+        if self.init_levels[level as usize].is_some() {
+            gdext_print_warning!("Replacing init function for {level:?}")
+        }
+        self.init_levels[level as usize] = Some(Box::new(f));
         self.lowest_level = self.lowest_level.min(level);
     }
 
-    pub fn register_deinit_function(&mut self, level: InitLevel, f: impl FnOnce() + 'static) {
-        self.deinit_levels.insert(level, Box::new(f));
+    pub fn register_deinit_function(&mut self, level: InitLevel, f: impl FnMut() + 'static) {
+        if self.deinit_levels[level as usize].is_some() {
+            gdext_print_warning!("Replacing deinit function for {level:?}")
+        }
+        self.deinit_levels[level as usize] = Some(Box::new(f));
+        self.lowest_level = self.lowest_level.min(level);
     }
 
     pub fn lowest_init_level(&self) -> InitLevel {
@@ -80,13 +79,13 @@ impl InitOptions {
     }
 
     pub fn run_init_function(&mut self, level: InitLevel) {
-        if let Some(f) = self.init_levels.remove(&level) {
+        if let Some(f) = self.init_levels[level as usize].as_mut() {
             f();
         }
     }
 
     pub fn run_deinit_function(&mut self, level: InitLevel) {
-        if let Some(f) = self.deinit_levels.remove(&level) {
+        if let Some(f) = self.deinit_levels[level as usize].as_mut() {
             f();
         }
     }

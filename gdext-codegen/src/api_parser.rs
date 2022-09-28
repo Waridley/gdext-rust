@@ -31,6 +31,7 @@ pub struct ClassSize {
 #[derive(Deserialize)]
 pub struct BuiltinClass {
     pub name: String,
+    pub methods: Option<Vec<BuiltinMethod>>,
     pub constructors: Vec<Constructor>,
     pub has_destructor: bool,
 }
@@ -93,6 +94,17 @@ pub struct Method {
     pub hash: Option<i64>,
     pub arguments: Option<Vec<MethodArg>>,
     pub return_value: Option<MethodReturn>,
+}
+
+#[derive(Deserialize)]
+pub struct BuiltinMethod {
+    pub name: String,
+    pub return_type: Option<String>,
+    pub is_vararg: bool,
+    pub is_const: bool,
+    pub is_static: bool,
+    pub hash: i64,
+    pub arguments: Option<Vec<MethodArg>>,
 }
 
 #[derive(Deserialize)]

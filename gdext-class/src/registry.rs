@@ -122,6 +122,13 @@ pub fn register_class<T: GodotExtensionClass + GodotExtensionClassMethods + Godo
     T::register_methods();
 }
 
+pub fn unregister_class<T: GodotExtensionClass + GodotExtensionClassMethods + GodotMethods>() {
+    let class_name = ClassName::new::<T>();
+    unsafe {
+        interface_fn!(classdb_unregister_extension_class)(sys::get_library(), class_name.c_str())
+    }
+}
+
 /// Utility to convert `String` to C `const char*`.
 /// Cannot be a function since the backing string must be retained.
 pub(crate) struct ClassName {

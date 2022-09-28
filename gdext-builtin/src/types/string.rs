@@ -1,6 +1,7 @@
 use std::ffi::CString;
 use std::{convert::Infallible, mem::MaybeUninit, str::FromStr};
 
+use crate::{types::*, util::*};
 use gdext_sys as sys;
 use sys::types::OpaqueString;
 use sys::{get_cache, impl_ffi_as_opaque_pointer, interface_fn, GodotFfi};
@@ -73,6 +74,11 @@ impl Clone for GodotString {
         }
     }
 }
+
+impl_builtin_froms!(GodotString;
+    StringName => string_from_string_name,
+    NodePath => string_from_node_path,
+);
 
 impl From<String> for GodotString {
     fn from(s: String) -> GodotString {

@@ -1,7 +1,7 @@
 //! Generates extensions.rs and many globally accessible symbols.
 
 use convert_case::{Case, Casing};
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::{Ident, Literal, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -122,14 +122,17 @@ fn load_extension_api(model: &ExtensionApi, build_config: &str) -> Tokens {
                 let pascal_case: String;
                 let has_destructor: bool;
                 let constructors: Option<&Vec<Constructor>>;
+                let methods: Option<&Vec<BuiltinMethod>>;
                 if let Some(class) = class_map.get(&normalized) {
                     pascal_case = class.name.clone();
                     has_destructor = class.has_destructor;
+                    methods = class.methods.as_ref();
                     constructors = Some(&class.constructors);
                 } else {
                     assert_eq!(normalized, "object");
                     pascal_case = "Object".to_string();
                     has_destructor = false;
+                    methods = None;
                     constructors = None;
                 }
 
@@ -146,7 +149,8 @@ fn load_extension_api(model: &ExtensionApi, build_config: &str) -> Tokens {
                 let value = ty.value;
                 variant_enumerators.push(make_enumerator(&type_names, value));
 
-                let (decl, init) = make_variant_fns(&type_names, has_destructor, constructors);
+                let (decl, init) =
+                    make_variant_fns(&type_names, has_destructor, methods, constructors);
 
                 variant_fn_decls.push(decl);
                 variant_fn_inits.push(init);
@@ -187,11 +191,14 @@ fn make_opaque_type(name: &str, size: usize) -> TokenStream {
 fn make_variant_fns(
     type_names: &TypeNames,
     has_destructor: bool,
+    methods: Option<&Vec<BuiltinMethod>>,
     constructors: Option<&Vec<Constructor>>,
 ) -> (TokenStream, TokenStream) {
     let (destroy_decls, destroy_inits) = make_destroy_fns(&type_names, has_destructor);
 
     let (construct_decls, construct_inits) = make_construct_fns(&type_names, constructors);
+
+    let (method_decls, method_inits) = make_builtin_methods(&type_names, methods);
 
     let to_variant = format_ident!("{}_to_variant", type_names.snake_case);
     let from_variant = format_ident!("{}_from_variant", type_names.snake_case);
@@ -205,6 +212,7 @@ fn make_variant_fns(
         pub #from_variant: unsafe extern "C" fn(GDNativeTypePtr, GDNativeVariantPtr),
         #construct_decls
         #destroy_decls
+        #method_decls
     };
 
     // Field initialization in new()
@@ -219,6 +227,55 @@ fn make_variant_fns(
         },
         #construct_inits
         #destroy_inits
+        #method_inits
+    };
+
+    (decl, init)
+}
+
+fn make_builtin_methods(
+    type_names: &TypeNames,
+    methods: Option<&Vec<BuiltinMethod>>,
+) -> (TokenStream, TokenStream) {
+    let methods = match methods {
+        Some(c) => c,
+        None => return (TokenStream::new(), TokenStream::new()),
+    };
+
+    let variant_type = &type_names.sys_variant_type;
+    let mut decls = Vec::with_capacity(methods.len());
+    let mut inits = Vec::with_capacity(methods.len());
+    for method in methods {
+        if method.is_vararg {
+            continue;
+        }; // TODO: vararg fns don't support ptrcalls, use varcall
+        let ident = format_ident!("{}_{}", type_names.snake_case, method.name);
+        let hash = method.hash;
+        let name_str = Literal::byte_string(format!("{}\0", method.name).as_bytes());
+        let error_msg = format_load_error(&ident);
+
+        // TODO: use arg_count if provided, but calculate if varargs
+        let arg_count = method.arguments.as_ref().map_or(0, |args| args.len()) as i32;
+
+        decls.push(quote! {
+            pub #ident: unsafe extern "C" fn(GDNativeTypePtr,  *const GDNativeTypePtr, GDNativeTypePtr, i32),
+        });
+        inits.push(quote! {
+            #ident : {
+                (interface.variant_get_ptr_builtin_method.unwrap())(
+                    crate:: #variant_type,
+                    ::std::ffi::CStr::from_bytes_with_nul( #name_str ).unwrap().as_ptr(),
+                    #hash,
+                ).expect(#error_msg)
+            },
+        });
+    }
+
+    let decl = quote! {
+        #(#decls)*
+    };
+    let init = quote! {
+        #(#inits)*
     };
 
     (decl, init)
@@ -236,7 +293,7 @@ fn make_construct_fns(
     // Constructor vec layout:
     //   [0]: default constructor
     //   [1]: copy constructor
-    //  rest: not interesting for now
+    //  rest: type-specific
 
     // Sanity checks -- ensure format is as expected
     for (i, c) in constructors.iter().enumerate() {
@@ -262,12 +319,12 @@ fn make_construct_fns(
     let construct_copy_error = format_load_error(&construct_copy);
     let variant_type = &type_names.sys_variant_type;
 
-    let mut more_decls = vec![];
-    let mut more_inits = vec![];
+    let mut more_decls = Vec::with_capacity(constructors.len() - 2);
+    let mut more_inits = Vec::with_capacity(constructors.len() - 2);
     for i in 2..constructors.len() {
         let ctor = &constructors[i];
         if let Some(args) = &ctor.arguments {
-            let ident = if args.len() == 1 {
+            let ident = if args.len() == 1 && args[0].name == "from" {
                 let arg_type = &args[0].type_.to_case(Case::Snake);
                 format_ident!("{}_from_{arg_type}", type_names.snake_case)
             } else {

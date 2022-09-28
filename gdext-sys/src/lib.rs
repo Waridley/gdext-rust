@@ -9,7 +9,7 @@
 
 include!(concat!(env!("OUT_DIR"), "/gdnative_interface.rs"));
 
-mod opaque;
+pub mod opaque;
 mod gen {
     pub(crate) mod extensions;
 }

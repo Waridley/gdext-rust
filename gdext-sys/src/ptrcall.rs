@@ -88,7 +88,15 @@ impl_ptrcall_num!(i64);
 impl_ptrcall_num!(f32);
 impl_ptrcall_num!(f64);
 
-impl_ptrcall_num!(bool);
+impl PtrCall for bool {
+    unsafe fn ptrcall_read(arg: sys::GDNativeTypePtr) -> Self {
+        *(arg as *mut sys::GDNativeBool) != 0
+    }
+
+    unsafe fn ptrcall_write(&self, ret: sys::GDNativeTypePtr) {
+        *(ret as *mut sys::GDNativeBool) = *self as _;
+    }
+}
 
 impl PtrCall for () {
     unsafe fn ptrcall_read(_arg: sys::GDNativeTypePtr) -> Self {}

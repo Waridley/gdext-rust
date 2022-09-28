@@ -49,7 +49,7 @@ impl GodotFfi for Variant {
 
 mod conversions {
     use super::Variant;
-    use crate::{string::GodotString, vector2::Vector2, vector3::Vector3, Array, StringName};
+    use crate::types::{Array, GodotString, StringName, Vector2, Vector3};
     use gdext_sys as sys;
     use sys::GodotFfi;
 

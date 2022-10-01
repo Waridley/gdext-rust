@@ -255,7 +255,7 @@ fn make_builtin_methods(
         let error_msg = format_load_error(&ident);
 
         // TODO: use arg_count if provided, but calculate if varargs
-        let arg_count = method.arguments.as_ref().map_or(0, |args| args.len()) as i32;
+        let _arg_count = method.arguments.as_ref().map_or(0, |args| args.len()) as i32;
 
         decls.push(quote! {
             pub #ident: unsafe extern "C" fn(GDNativeTypePtr,  *const GDNativeTypePtr, GDNativeTypePtr, i32),

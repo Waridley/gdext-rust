@@ -1,4 +1,3 @@
-use std::ops::{Index, IndexMut};
 // Stub for various other built-in classes, which are currently incomplete, but whose types
 // are required for codegen
 use crate::types::*;
@@ -7,6 +6,54 @@ use gdext_sys::types::*;
 use gdext_sys::{get_cache, PtrCall};
 use sys::GodotFfi;
 
+// TODO: Swap more inner math types with glam types
+
+impl_builtin_stub!(
+    AABB,
+    OpaqueAABB,
+    aabb_construct_default,
+    aabb_construct_copy,
+    aabb_destroy,
+);
+impl_builtin_stub!(
+    Rect2,
+    OpaqueRect2,
+    rect2_construct_default,
+    rect2_construct_copy,
+);
+impl_builtin_stub!(
+    Rect2i,
+    OpaqueRect2i,
+    rect2i_construct_default,
+    rect2i_construct_copy,
+);
+impl_builtin_stub!(
+    Plane,
+    OpaquePlane,
+    plane_construct_default,
+    plane_construct_copy,
+);
+impl_builtin_stub!(
+    Basis,
+    OpaqueBasis,
+    basis_construct_default,
+    basis_construct_copy,
+    basis_destroy,
+);
+impl_builtin_stub!(
+    RID,
+    OpaqueRID,
+    rid_construct_default,
+    rid_construct_copy,
+    rid_destroy,
+);
+impl_builtin_stub!(
+    Callable,
+    OpaqueCallable,
+    callable_construct_default,
+    callable_construct_copy,
+    callable_destroy,
+);
 impl_builtin_stub!(
     Dictionary,
     OpaqueDictionary,

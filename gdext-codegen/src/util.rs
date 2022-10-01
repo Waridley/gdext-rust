@@ -139,19 +139,41 @@ pub fn ident(s: &str) -> Ident {
     format_ident!("{}", s)
 }
 
-pub fn ident_escaped(s: &str) -> Ident {
+#[rustfmt::skip]
+pub(crate) fn ident_escaped(name: &str) -> Ident {
+    // Copied from godot-rust
     // note: could also use Ident::parse(s) from syn, but currently this crate doesn't depend on it
 
-    let transformed = match s {
-        "type" => "type_",
-        s => s,
-    };
+    // Keywords obtained from https://doc.rust-lang.org/reference/keywords.html
+    match name {
+        // Lexer 2015
+        "as" | "break" | "const" | "continue" | "crate" | "else" | "enum" | "extern" | "false" | "fn" | "for" |
+        "if" | "impl" | "in" | "let" | "loop" | "match" | "mod" | "move" | "mut" | "pub" | "ref" | "return" |
+        "self" | "Self" | "static" | "struct" | "super" | "trait" | "true" | "type" | "unsafe" | "use" |
+        "where" | "while" |
+        
+        // Lexer 2018
+        "async" | "await" | "dyn" |
+        
+        // Lexer 2018+
+        "try" |
+        
+        // Reserved words
+        "abstract" | "become" | "box" | "do" | "final" | "macro" | "override" | "priv" | "typeof" |
+        "unsized" | "virtual" | "yield"
+        
+        
+        | "new" // TODO: better solution since this isn't actually a reserved word?
+        => format_ident!("{}_", name),
 
-    ident(transformed)
+        _ => format_ident!("{}", name)
+    }
 }
 
 pub fn c_str(s: &str) -> TokenStream {
     let s = Literal::byte_string(format!("{}\0", s).as_bytes());
+
+    // TODO: use unchecked when confident implementation is correct
     quote! {
         ::std::ffi::CStr::from_bytes_with_nul(#s).unwrap().as_ptr()
     }

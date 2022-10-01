@@ -1,12 +1,10 @@
-use gdext_builtin::{
-    gdext_init, Array, GodotString, InitLevel, StringName, Variant, Vector2, Vector3,
-};
+use gdext_builtin::{gdext_init, GodotString, InitLevel, StringName, Variant, Vector2, Vector3};
 
-use gdext_class::api::{Engine, InputEvent, InputMap, Node3D, RefCounted, SceneTree};
+use gdext_class::api::{Engine, InputEvent, Node3D, RefCounted, SceneTree};
 use gdext_class::*;
 
 use gdext_sys as sys;
-use gdext_sys::{drop_cache, drop_interface, drop_library, get_cache, get_interface, GodotFfi};
+use gdext_sys::{get_interface, GodotFfi};
 use sys::interface_fn;
 
 // ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -153,21 +151,9 @@ impl RustTest {
 
     fn print_input_map_actions(&self) {
         unsafe {
-            let call_fn = sys::interface_fn!(object_method_bind_ptrcall);
-
             let imap = (get_interface().global_get_singleton.unwrap())(c_str(b"InputMap\0"));
-
-            // TODO: Why isn't this being generated?
-            let input_map_get_actions = sys::interface_fn!(classdb_get_method_bind)(
-                c_str(b"InputMap\0"),
-                c_str(b"get_actions\0"),
-                2915620761,
-            );
-
-            let actions = <Array as sys::PtrCall>::ptrcall_read_init(|ret_ptr| {
-                (get_cache().array_construct_default)(ret_ptr, std::ptr::null());
-                call_fn(input_map_get_actions, imap, [].as_ptr(), ret_ptr);
-            });
+            let imap = Obj::<api::InputMap>::from_obj_sys(imap);
+            let actions = imap.get_actions();
 
             for i in 0..actions.size() {
                 let action = &actions[i];

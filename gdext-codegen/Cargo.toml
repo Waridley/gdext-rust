@@ -3,6 +3,9 @@ name = "gdext-codegen"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+formatted = []
+
 [dependencies]
 miniserde = "0.1.16"
 quote = "1"

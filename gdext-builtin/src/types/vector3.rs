@@ -31,3 +31,31 @@ impl std::fmt::Display for Vector3 {
         self.inner.fmt(f)
     }
 }
+
+type IInner = glam::IVec3;
+
+#[derive(Default, Copy, Clone, Debug)]
+#[repr(C)]
+pub struct Vector3i {
+    inner: IInner,
+}
+
+impl Vector3i {
+    pub fn new(x: i32, y: i32, z: i32) -> Self {
+        Self {
+            inner: IInner::new(x, y, z),
+        }
+    }
+}
+
+impl GodotFfi for Vector3i {
+    impl_ffi_as_value!();
+}
+
+impl std::fmt::Display for Vector3i {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        //let Inner {x, y, z} = self.inner;
+        //write!(f, "({x}, {y}, {z})")
+        self.inner.fmt(f)
+    }
+}

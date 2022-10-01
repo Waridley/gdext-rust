@@ -3,7 +3,7 @@ use std::{convert::Infallible, mem::MaybeUninit, str::FromStr};
 
 use crate::types::*;
 use gdext_sys as sys;
-use gdext_sys::{GDNativeStringPtr, GDNativeTypePtr};
+use gdext_sys::GDNativeTypePtr;
 use sys::types::OpaqueString;
 use sys::{get_cache, impl_ffi_as_opaque_pointer, interface_fn, GodotFfi};
 

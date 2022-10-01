@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-"real_is_double" = []
+real_is_double = []
+formatted = ["gdext-codegen/formatted"]
 
 [build-dependencies]
 bindgen = "0.59"

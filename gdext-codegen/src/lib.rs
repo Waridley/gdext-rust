@@ -19,7 +19,7 @@ mod tests {
     }
 }
 
-//#[cfg(feature = "formatted")]
+#[cfg(feature = "formatted")]
 pub fn rustfmt_if_needed(out_files: Vec<PathBuf>) {
     //print!("Format {} generated files...", out_files.len());
 

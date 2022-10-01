@@ -3,7 +3,7 @@ use sys::{impl_ffi_as_value, GodotFfi};
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-struct Color {
+pub struct Color {
     pub r: f32,
     pub g: f32,
     pub b: f32,

@@ -1,54 +1,42 @@
 //! Generates a file for each Godot class
 
 use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote, ToTokens};
+use quote::{quote, ToTokens};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use crate::api_parser::*;
 use crate::util::{c_str, ident, ident_escaped, strlit, to_module_name};
 
-// Workaround for limiting number of types as long as implementation is incomplete
-const KNOWN_TYPES: [&str; 20] = [
-    // builtin:
-    "bool",
-    "int",
-    "float",
-    "String",
-    "Vector2",
-    "Vector3",
-    "Color",
-    // classes:
-    "Object",
-    "Resource",
-    "Node",
-    "Node3D",
-    "RefCounted",
-    "InputEvent",
-    "StringName",
-    "Transform2D",
-    "Vector2",
-    "MainLoop",
-    "SceneTree",
-    "Engine",
-    "InputMap",
-];
+// // Workaround for limiting number of types as long as implementation is incomplete
+// const KNOWN_TYPES: &[&str] = &[
+//     // builtin:
+//     "bool",
+//     "int",
+//     "float",
+//     "String",
+//     "Vector2",
+//     "Vector3",
+//     "Color",
+//     // classes:
+//     "Object",
+//     "Resource",
+//     "Node",
+//     "Node3D",
+//     "RefCounted",
+//     "InputEvent",
+//     "StringName",
+//     "Transform2D",
+//     "Vector2",
+//     "MainLoop",
+//     "SceneTree",
+//     "Engine",
+//     "InputMap",
+//     "TextServer",
+//     "AESContext",
+// ];
 
-const SELECTED: [&str; 13] = [
-    "Object",
-    "Resource",
-    "Node",
-    "Node3D",
-    "RefCounted",
-    "InputEvent",
-    "StringName",
-    "Transform2D",
-    "Vector2",
-    "MainLoop",
-    "SceneTree",
-    "Engine",
-    "InputMap",
-];
+// const CLASSES: &[&str] = &KNOWN_TYPES[7..];
 
 #[derive(Default)]
 struct Context<'a> {
@@ -72,9 +60,9 @@ pub fn generate_class_files(
 
     let mut ctx = Context::default();
     for class in api.classes.iter() {
-        if !SELECTED.contains(&class.name.as_str()) {
-            continue;
-        }
+        // if !CLASSES.contains(&class.name.as_str()) {
+        //     continue;
+        // }
 
         println!("-- add engine class {}", class.name);
         ctx.engine_classes.insert(class.name.as_str());
@@ -83,9 +71,9 @@ pub fn generate_class_files(
     // TODO no limit after testing
     let mut modules = vec![];
     for class in api.classes.iter() {
-        if !SELECTED.contains(&class.name.as_str()) {
-            continue;
-        }
+        // if !CLASSES.contains(&class.name.as_str()) {
+        //     continue;
+        // }
 
         let file_contents = make_class(class, &ctx).to_string();
 
@@ -117,10 +105,13 @@ fn make_class(class: &Class, ctx: &Context) -> TokenStream {
     let name = ident(&class.name);
     let methods = make_methods(&class.methods, &class.name, ctx);
 
+    let enums = class.enums.as_ref().map(|enums| make_enums(enums));
+
     let name_str = strlit(&class.name);
     let name_cstr = c_str(&class.name);
 
     quote! {
+        #![allow(non_upper_case_globals, non_snake_case)]
         use gdext_sys as sys;
         use gdext_builtin::*;
         use super::*;
@@ -130,6 +121,9 @@ fn make_class(class: &Class, ctx: &Context) -> TokenStream {
         pub struct #name {
             object_ptr: sys::GDNativeObjectPtr,
         }
+
+        #enums
+
         impl #name {
             pub fn new() -> Obj<Self> {
                 unsafe {
@@ -179,7 +173,7 @@ fn make_class(class: &Class, ctx: &Context) -> TokenStream {
 
 fn make_module_file(classes_and_modules: Vec<(Ident, Ident)>) -> TokenStream {
     let decls = classes_and_modules.into_iter().map(|(class, module)| {
-        let vis = TokenStream::new(); // TODO pub if other symbols
+        let vis = quote! { pub }; // TODO pub only if other symbols
         quote! {
             #vis mod #module;
             pub use #module::#class;
@@ -206,6 +200,29 @@ fn make_methods(methods: &Option<Vec<Method>>, class_name: &str, ctx: &Context) 
     }
 }
 
+fn make_enums(enums: &Vec<Enum>) -> TokenStream {
+    let enums = enums
+        .iter()
+        .map(|e| {
+            let name = ident(&e.name);
+            let values = e.values.iter().map(|Constant { name, value }| {
+                let name = ident(&*name);
+                quote! { pub const #name: i32 = #value; }
+            });
+            quote! {
+                #[repr(transparent)]
+                pub struct #name;
+                impl #name {
+                    #(#values)*
+                }
+            }
+        })
+        .flatten();
+    quote! {
+        #(#enums)*
+    }
+}
+
 fn is_method_excluded(method: &Method) -> bool {
     // Currently excluded:
     //
@@ -218,21 +235,22 @@ fn is_method_excluded(method: &Method) -> bool {
     //   These are anyway not accessible in GDScript since that language has no pointers.
     //   As such support could be added later (if at all), with possibly safe interfaces (e.g. Vec for void*+size pairs)
 
-    // FIXME remove when impl complete
-    if method
-        .return_value
-        .as_ref()
-        .map_or(false, |ret| !KNOWN_TYPES.contains(&ret.type_.as_str()))
-        || method.arguments.as_ref().map_or(false, |args| {
-            args.iter()
-                .any(|arg| !KNOWN_TYPES.contains(&arg.type_.as_str()))
-        })
-    {
-        return true;
-    }
-    // -- end.
+    // // FIXME remove when impl complete
+    // if method
+    //     .return_value
+    //     .as_ref()
+    //     .map_or(false, |ret| !KNOWN_TYPES.contains(&ret.type_.as_str()))
+    //     || method.arguments.as_ref().map_or(false, |args| {
+    //         args.iter()
+    //             .any(|arg| !KNOWN_TYPES.contains(&arg.type_.as_str()))
+    //     })
+    // {
+    //     return true;
+    // }
+    // // -- end.
 
     method.name.starts_with("_")
+        || method.is_virtual
         || method
             .return_value
             .as_ref()
@@ -270,10 +288,10 @@ fn make_method_definition(method: &Method, class_name: &str, ctx: &Context) -> T
         }
     }
 
-    let method_name = ident(&method.name);
+    let method_name = ident_escaped(&method.name);
     let c_method_name = c_str(&method.name);
     let c_class_name = c_str(class_name);
-    let hash = method.hash;
+    let hash = method.hash.expect("non-virtual method is missing hash");
 
     let (return_decl, call) = make_return(&method.return_value, ctx);
 
@@ -327,24 +345,38 @@ fn make_return(return_value: &Option<MethodReturn>, ctx: &Context) -> (TokenStre
 fn to_rust_type(ty: &str, ctx: &Context) -> RustTy {
     //println!("to_rust_ty: {ty}");
 
-    if let Some(remain) = ty.strip_prefix("enum::") {
-        let mut parts = remain.split(".");
+    // if let Some(remain) = ty.strip_prefix("enum::") {
+    //     let mut parts = remain.split(".");
+    //
+    //     let first = parts.next().unwrap();
+    //     let ident = match parts.next() {
+    //         Some(second) => {
+    //             // enum::Animation.LoopMode
+    //             format_ident!("{}_{}", first, second) // TODO better
+    //         }
+    //         None => {
+    //             // enum::Error
+    //             format_ident!("{}", first)
+    //         }
+    //     };
+    //
+    //     assert!(parts.next().is_none(), "Unrecognized enum type '{}'", ty);
+    //     return RustTy {
+    //         tokens: ident.to_token_stream(),
+    //         is_engine_class: false,
+    //     };
+    // }
 
-        let first = parts.next().unwrap();
-        let ident = match parts.next() {
-            Some(second) => {
-                // enum::Animation.LoopMode
-                format_ident!("{}{}", first, second) // TODO better
-            }
-            None => {
-                // enum::Error
-                format_ident!("{}", first)
-            }
-        };
-
-        assert!(parts.next().is_none(), "Unrecognized enum type '{}'", ty);
+    // TODO: newtypes for enums & bitfields?
+    //   - more verbose to use and complicated to implement
+    //   - lack of inherent associated types makes module structure awkward
+    //   - need to implement bitwise traits for bitfields
+    //   - API breaks often in Godot
+    //   - prior art = used i64 constants for gdnative
+    //   + but type safety!
+    if ty.starts_with("bitfield::") || ty.starts_with("enum::") {
         return RustTy {
-            tokens: ident.to_token_stream(),
+            tokens: ident("i32").to_token_stream(),
             is_engine_class: false,
         };
     }
@@ -359,9 +391,16 @@ fn to_rust_type(ty: &str, ctx: &Context) -> RustTy {
 
     let ty = match ty {
         "int" => "i32",
-        "float" => "f32",          // TODO double vs float
-        "String" => "GodotString", // TODO double vs float
-        other => other,
+        "float" => "f32", // TODO double vs float
+        "String" => "GodotString",
+        "Error" => "GodotError",
+        other => {
+            if let Some(arr) = other.strip_prefix("Packed") {
+                arr
+            } else {
+                other
+            }
+        }
     };
 
     return RustTy {

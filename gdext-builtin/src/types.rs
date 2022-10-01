@@ -6,6 +6,7 @@ mod string;
 mod variant;
 mod vector2;
 mod vector3;
+mod vector4;
 
 pub use arrays::*;
 pub use color::*;
@@ -15,6 +16,7 @@ pub use string::*;
 pub use variant::*;
 pub use vector2::*;
 pub use vector3::*;
+pub use vector4::*;
 
 use gdext_sys as sys;
 

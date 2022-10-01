@@ -70,7 +70,7 @@ impl RustTest {
         Self { time: 0.0, base }
     }
 
-    fn test_method(&mut self, some_int: u64, some_string: GodotString) -> GodotString {
+    fn test_method(&mut self, some_int: u64, some_string: &GodotString) -> GodotString {
         //let id = Obj::emplace(self).instance_id();
 
         // let some_string = some_string.clone();
@@ -241,7 +241,7 @@ impl GodotExtensionClassMethods for RustTest {
         );
 
         gdext_wrap_method!(RustTest,
-            fn test_method(&mut self, some_int: u64, some_string: GodotString) -> GodotString
+            fn test_method(&mut self, some_int: u64, some_string: &GodotString) -> GodotString
         );
 
         gdext_wrap_method!(RustTest,

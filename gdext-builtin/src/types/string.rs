@@ -143,14 +143,46 @@ impl FromStr for GodotString {
 impl Drop for GodotString {
     fn drop(&mut self) {
         unsafe {
-            let destructor = sys::get_cache().string_destroy;
-            // destructor(self.sys_mut()); // temporarily leaking to prevent segfaults
+            let destructor = get_cache().string_destroy;
+            destructor(self.sys_mut()); // TODO: temporarily leaking to prevent segfaults (strangely only sporadically at exit when destroying Vulkan context)
         }
     }
 }
 
+// FIXME: Should this only be implemented for &GodotString? This risks UB from dropping GodotStrings
 impl GodotFfi for GodotString {
     impl_ffi_as_opaque_pointer!(sys::GDNativeTypePtr);
+}
+
+impl From<&Variant> for &GodotString {
+    fn from(v: &Variant) -> Self {
+        unsafe {
+            let converter = sys::get_cache().string_from_variant;
+            Self::from_sys_init(|ptr| converter(ptr, v.sys()))
+        }
+    }
+}
+
+impl GodotFfi for &GodotString {
+    type SysPointer = GDNativeTypePtr;
+
+    unsafe fn from_sys(opaque_ptr: Self::SysPointer) -> Self {
+        unsafe { &*(opaque_ptr as *const GodotString) }
+    }
+
+    unsafe fn from_sys_init(init: impl FnOnce(Self::SysPointer)) -> Self {
+        let mut ret = MaybeUninit::<OpaqueString>::zeroed();
+        init(ret.assume_init_mut() as *mut _ as _);
+        std::mem::transmute(ret.assume_init_ref())
+    }
+
+    fn sys(&self) -> Self::SysPointer {
+        self.opaque.to_sys()
+    }
+
+    unsafe fn write_sys(&self, dst: Self::SysPointer) {
+        std::ptr::write(dst as *mut _, self.opaque)
+    }
 }
 
 // While this is a nice optimisation for ptrcalls, it's not easily possible

@@ -1,4 +1,5 @@
-use crate::{util::*, *};
+use crate::types::{impl_builtin_froms, impl_builtin_stub};
+use crate::Variant;
 use gdext_sys as sys;
 use std::ops::{Index, IndexMut};
 use sys::{get_cache, interface_fn, types::*, GodotFfi};

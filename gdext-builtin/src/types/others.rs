@@ -1,7 +1,7 @@
 use std::ops::{Index, IndexMut};
 // Stub for various other built-in classes, which are currently incomplete, but whose types
 // are required for codegen
-use crate::{types::*, util::*};
+use crate::types::*;
 use gdext_sys as sys;
 use gdext_sys::types::*;
 use gdext_sys::{get_cache, PtrCall};

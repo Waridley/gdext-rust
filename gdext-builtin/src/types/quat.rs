@@ -1,4 +1,4 @@
-use crate::util::*;
+use crate::types::impl_builtin_stub;
 use crate::BuiltinInner;
 use gdext_sys as sys;
 use glam::Quat;

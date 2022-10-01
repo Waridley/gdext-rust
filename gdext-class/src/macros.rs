@@ -50,7 +50,7 @@ macro_rules! gdext_wrap_method_inner {
                         ret: sys::GDNativeVariantPtr,
                         err: *mut sys::GDNativeCallError,
                     ) {
-                        let storage = ::gdext_class::private::as_storage::<$type_name>(instance);
+                        let storage = $crate::private::as_storage::<$type_name>(instance);
                         let instance = storage.get_mut();
 
                         let mut idx = 0;
@@ -64,7 +64,7 @@ macro_rules! gdext_wrap_method_inner {
                             $pname,
                         )*);
 
-                        *(ret as *mut Variant) = Variant::from(ret_val);
+                        *(ret as *mut Variant) = Variant::from(&ret_val);
                         (*err).error = sys::GDNativeCallErrorType_GDNATIVE_CALL_OK;
                     }
 
@@ -77,7 +77,7 @@ macro_rules! gdext_wrap_method_inner {
                         args: *const sys::GDNativeTypePtr,
                         ret: sys::GDNativeTypePtr,
                     ) {
-                        let storage = ::gdext_class::private::as_storage::<$type_name>(instance);
+                        let storage = $crate::private::as_storage::<$type_name>(instance);
                         let instance = storage.get_mut();
 
                         let mut idx = 0;
@@ -268,7 +268,8 @@ macro_rules! gdext_virtual_method_inner {
                 args: *const sys::GDNativeTypePtr,
                 ret: sys::GDNativeTypePtr,
             ) {
-                let instance = &mut *(instance as *mut $type_name);
+                let storage = $crate::private::as_storage::<$type_name>(instance);
+                let instance = storage.get_mut();
                 let mut idx = 0;
 
                 $(

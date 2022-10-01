@@ -6,7 +6,7 @@ use gdext_class::api::{Engine, InputEvent, InputMap, Node3D, RefCounted, SceneTr
 use gdext_class::*;
 
 use gdext_sys as sys;
-use gdext_sys::{get_cache, get_interface, GodotFfi};
+use gdext_sys::{drop_cache, drop_interface, drop_library, get_cache, get_interface, GodotFfi};
 use sys::interface_fn;
 
 // ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -76,8 +76,8 @@ impl RustTest {
         // let some_string = some_string.clone();
 
         let msg = format!(
-            "Hello from `RustTest.test_method()`:\
-			\n\tyou passed some_int={some_int} and some_string={some_string}"
+            "Hello from `RustTest.test_method()`:\n\
+			       \tyou passed some_int={some_int} and some_string={some_string}"
         );
         msg.into()
     }
@@ -126,19 +126,19 @@ impl RustTest {
     }
 
     fn call_base_method(&self) -> Vector3 {
-        println!("to_global()...");
+        out!("to_global()...");
         //return Vector3::new(1.0, 2.0,3.0);
 
         let arg = Vector3::new(2.0, 3.0, 4.0);
         let res = self.base.to_global(arg);
 
-        println!("to_global({arg}) == {res}");
+        out!("to_global({arg}) == {res}");
         res
     }
 
     fn call_node_method(&self, node: Obj<Node3D>) -> Vector3 {
-        println!("call_node_method - to_global()...");
-        println!("  instance_id: {}", node.instance_id());
+        out!("call_node_method - to_global()...");
+        out!("  instance_id: {}", node.instance_id());
 
         //let node = Obj::<Node3D>::from_instance_id(node.instance_id()).unwrap();
         // let node = Node3D::new();
@@ -146,7 +146,7 @@ impl RustTest {
         node.set_position(arg);
 
         let res = node.get_position();
-        println!("  get_position() == {res}");
+        out!("  get_position() == {res}");
         node.queue_free();
         res
     }
@@ -172,9 +172,9 @@ impl RustTest {
             for i in 0..actions.size() {
                 let action = &actions[i];
                 let action = StringName::from(action);
-                println!(
+                out!(
                     "action {i}: {}",
-                    <GodotString as From<StringName>>::from(action)
+                    <GodotString as From<&StringName>>::from(&action)
                 );
             }
         }
@@ -196,9 +196,9 @@ impl RustTest {
 
     fn _input(&self, event: Obj<InputEvent>) {
         let text = event.as_text();
-        println!("{text}");
+        out!("{text}");
 
-        let ui_cancel = StringName::from(GodotString::from("ui_cancel"));
+        let ui_cancel = StringName::from(&GodotString::from("ui_cancel"));
         if event.is_action_pressed(ui_cancel, false, false) {
             unsafe {
                 let engine = (get_interface().global_get_singleton.unwrap())(c_str(b"Engine\0"));
@@ -371,18 +371,18 @@ gdext_init!(gdext_rust_test, |init: &mut gdext_builtin::InitOptions| {
 fn variant_tests() {
     let _v = Variant::nil();
 
-    let _v = Variant::from(false);
+    let _v = Variant::from(&false);
 
     {
         let vec = Vector2::new(1.0, 4.0);
-        let vec_var = Variant::from(vec);
+        let vec_var = Variant::from(&vec);
 
         dbg!(Vector2::from(&vec_var));
     }
 
     {
         let vec = Vector3::new(1.0, 4.0, 6.0);
-        let vec_var = Variant::from(vec);
+        let vec_var = Variant::from(&vec);
 
         dbg!(Vector3::from(&vec_var));
     }
@@ -403,7 +403,7 @@ fn variant_tests() {
     }
 
     {
-        let x = Variant::from(true);
+        let x = Variant::from(&true);
         dbg!(bool::from(&x));
     }
 }

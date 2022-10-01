@@ -55,14 +55,13 @@ mod conversions {
 
     macro_rules! impl_variant_conversions {
         ($T:ty, $from_fn:ident, $to_fn:ident) => {
-            impl From<$T> for Variant {
-                fn from(value: $T) -> Self {
+            impl From<&$T> for Variant {
+                fn from(value: &$T) -> Self {
                     unsafe {
                         Self::from_sys_init(|variant_ptr| {
                             let converter = sys::get_cache().$from_fn;
                             //converter(variant_ptr, &value as *const _ as *mut std::ffi::c_void);
                             converter(variant_ptr, &value as *const _ as sys::GDNativeTypePtr);
-                            ::std::mem::forget(value);
                             //converter(variant_ptr, value.sys()); // TODO: use trait?
                         })
                     }
@@ -72,13 +71,13 @@ mod conversions {
             impl From<&Variant> for $T {
                 fn from(variant: &Variant) -> Self {
                     unsafe {
-                        let mut value = <$T>::default();
+                        let mut value = std::mem::MaybeUninit::<$T>::zeroed();
 
                         let converter = sys::get_cache().$to_fn;
                         //converter(&mut value as *mut _ as *mut std::ffi::c_void, variant.sys());
                         converter(&mut value as *mut _ as sys::GDNativeTypePtr, variant.sys());
                         //converter(value.sys(), variant.sys()); // TODO: use trait?
-                        value
+                        value.assume_init()
                     }
                 }
             }
@@ -89,7 +88,7 @@ mod conversions {
         ($name:ty) => {
             impl From<$name> for Variant {
                 fn from(i: $name) -> Self {
-                    Variant::from(i as i64)
+                    Variant::from(&(i as i64))
                 }
             }
 
@@ -118,22 +117,28 @@ mod conversions {
     impl_variant_int_conversions!(i16);
     impl_variant_int_conversions!(i32);
 
-    // Strings by ref
-    impl From<&GodotString> for Variant {
-        fn from(value: &GodotString) -> Self {
-            unsafe {
-                Self::from_sys_init(|ptr| {
-                    let converter = sys::get_cache().string_to_variant;
-                    //converter(ptr, &value as *const _ as *mut std::ffi::c_void);
-                    converter(ptr, value.sys()); // TODO:CHECK
-                })
-            }
-        }
-    }
+    // // Strings by ref
+    // impl From<&GodotString> for Variant {
+    //     fn from(value: &GodotString) -> Self {
+    //         unsafe {
+    //             Self::from_sys_init(|ptr| {
+    //                 let converter = sys::get_cache().string_to_variant;
+    //                 //converter(ptr, &value as *const _ as *mut std::ffi::c_void);
+    //                 converter(ptr, value.sys()); // TODO:CHECK
+    //             })
+    //         }
+    //     }
+    // }
 
     // Unit
     impl From<()> for Variant {
         fn from(_unit: ()) -> Self {
+            Self::nil()
+        }
+    }
+
+    impl From<&()> for Variant {
+        fn from(_: &()) -> Self {
             Self::nil()
         }
     }

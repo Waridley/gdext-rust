@@ -2,7 +2,7 @@ use crate::{out, sys, GodotClass, GodotMethods};
 
 /// Co-locates the user's instance (pure Rust) with the Godot "base" object.
 ///
-/// This design does not force the user to keep the base object intrusively in his own struct.
+/// This design does not force the user to keep the base object intrusively in their own struct.
 pub struct InstanceStorage<T: GodotClass> {
     _base: sys::GDNativeObjectPtr,
     // base: Obj<T::Base>,

@@ -2,7 +2,6 @@
 
 pub mod macros;
 mod types;
-mod util;
 pub use types::*;
 
 pub use glam;

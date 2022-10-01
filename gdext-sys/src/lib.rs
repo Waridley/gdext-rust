@@ -52,6 +52,10 @@ pub unsafe fn get_interface() -> &'static GDNativeInterface {
     unwrap_ref_unchecked(&INTERFACE)
 }
 
+pub unsafe fn drop_interface() {
+    drop(INTERFACE.take())
+}
+
 /// # Safety
 ///
 /// - The `library` pointer must be the pointer given by Godot at initialisation.
@@ -69,12 +73,20 @@ pub unsafe fn get_library() -> GDNativeExtensionClassLibraryPtr {
     LIBRARY.unwrap_unchecked()
 }
 
+pub unsafe fn drop_library() {
+    drop(LIBRARY.take())
+}
+
 /// # Safety
 ///
 /// The interface must have been initialised with [`set_interface`] before calling this function.
 #[inline(always)]
 pub unsafe fn get_cache() -> &'static InterfaceCache {
     unwrap_ref_unchecked(&CACHE)
+}
+
+pub unsafe fn drop_cache() {
+    drop(CACHE.take())
 }
 
 #[macro_export]

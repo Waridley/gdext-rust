@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use crate::types::{impl_builtin_froms, impl_builtin_stub};
 use crate::Variant;
 use gdext_sys as sys;
@@ -152,6 +153,117 @@ impl Index<i64> for Array {
 }
 
 impl IndexMut<i64> for Array {
+    fn index_mut(&mut self, index: i64) -> &mut Self::Output {
+        self.get_mut(index).unwrap() // Godot will print error if index is OOB
+    }
+}
+
+
+#[repr(C)]
+pub struct TypedArray<T> {
+    opaque: OpaqueArray,
+    _phantom: PhantomData<T>
+}
+impl<T> TypedArray<T> {
+    pub fn new() -> Self {
+        unsafe {
+            Self {
+                opaque: OpaqueArray::with_init(|ptr| {
+                    (gdext_sys::get_cache().array_construct_default)(ptr, ::std::ptr::null_mut())
+                }),
+                _phantom: PhantomData,
+            }
+        }
+    }
+    
+    fn from_opaque(opaque: OpaqueArray) -> Self {
+        Self { opaque, _phantom: PhantomData, }
+    }
+}
+impl<T> Default for TypedArray<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl<T> Clone for TypedArray<T> {
+    fn clone(&self) -> Self {
+        unsafe {
+            Self::from_sys_init(|opaque_ptr| {
+                let ctor = get_cache().array_construct_copy;
+                ctor(opaque_ptr, &self.sys() as *const sys::GDNativeTypePtr);
+            })
+        }
+    }
+}
+impl<T> gdext_sys::GodotFfi for TypedArray<T> {
+    gdext_sys::impl_ffi_as_opaque_pointer!( gdext_sys :: GDNativeTypePtr );
+}
+impl<T> Drop for TypedArray<T> {
+    fn drop(&mut self) {
+        unsafe {
+            let destructor = sys::get_cache().array_destroy
+              ;
+            destructor(self.sys_mut());
+        }
+    }
+}
+
+
+impl<T> TypedArray<T> {
+    pub fn size(&self) -> sys::GDNativeInt {
+        unsafe {
+            <sys::GDNativeInt as sys::PtrCall>::ptrcall_read_init(|ret_ptr| {
+                (get_cache().array_size)(self.sys(), [].as_ptr(), ret_ptr, 0)
+            })
+        }
+    }
+    
+    pub fn is_empty(&self) -> bool {
+        unsafe {
+            <bool as sys::PtrCall>::ptrcall_read_init(|ret_ptr| {
+                (get_cache().array_is_empty)(self.sys(), [].as_ptr(), ret_ptr, 0)
+            })
+        }
+    }
+    
+    pub fn clear(&mut self) {
+        unsafe {
+            <() as sys::PtrCall>::ptrcall_read_init(|ret_ptr| {
+                (get_cache().array_clear)(self.sys(), [].as_ptr(), ret_ptr, 0)
+            })
+        }
+    }
+    
+    pub fn get(&self, index: i64) -> Option<&T> {
+        unsafe {
+            let ptr = (interface_fn!(array_operator_index))(self.sys(), index) as *mut T;
+            if ptr.is_null() {
+                return None;
+            }
+            Some(&*ptr)
+        }
+    }
+    
+    pub fn get_mut(&mut self, index: i64) -> Option<&mut T> {
+        unsafe {
+            let ptr = (interface_fn!(array_operator_index))(self.sys(), index) as *mut T;
+            if ptr.is_null() {
+                return None;
+            }
+            Some(&mut *ptr)
+        }
+    }
+}
+
+impl<T> Index<i64> for TypedArray<T> {
+    type Output = T;
+    
+    fn index(&self, index: i64) -> &Self::Output {
+        self.get(index).unwrap() // Godot will print error if index is OOB
+    }
+}
+
+impl<T> IndexMut<i64> for TypedArray<T> {
     fn index_mut(&mut self, index: i64) -> &mut Self::Output {
         self.get_mut(index).unwrap() // Godot will print error if index is OOB
     }

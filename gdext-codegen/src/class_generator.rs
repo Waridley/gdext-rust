@@ -1,7 +1,7 @@
 //! Generates a file for each Godot class
 
 use proc_macro2::{Ident, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -379,6 +379,25 @@ fn to_rust_type(ty: &str, ctx: &Context) -> RustTy {
             tokens: ident("i32").to_token_stream(),
             is_engine_class: false,
         };
+    } else if let Some(packed_arr_ty) = ty.strip_prefix("Packed") && packed_arr_ty.ends_with("Array") {
+        // TODO: Is PackedByteArray actually supposed to be triggering this? Engine PR?
+        return RustTy {
+            tokens: ident(packed_arr_ty).to_token_stream(),
+            is_engine_class: false,
+        }
+    } else if let Some(arr_ty) = ty.strip_prefix("typedarray::") {
+        return if let Some(packed_arr_ty) = arr_ty.strip_prefix("Packed") {
+            RustTy {
+                tokens: ident(packed_arr_ty).to_token_stream(),
+                is_engine_class: false,
+            }
+        } else {
+            let arr_ty = to_rust_type(arr_ty, ctx).tokens;
+            RustTy {
+                tokens: quote!(TypedArray<#arr_ty>),
+                is_engine_class: false,
+            }
+        }
     }
 
     if ctx.is_engine_class(ty) {
@@ -394,13 +413,7 @@ fn to_rust_type(ty: &str, ctx: &Context) -> RustTy {
         "float" => "f32", // TODO double vs float
         "String" => "GodotString",
         "Error" => "GodotError",
-        other => {
-            if let Some(arr) = other.strip_prefix("Packed") {
-                arr
-            } else {
-                other
-            }
-        }
+        other => other
     };
 
     return RustTy {

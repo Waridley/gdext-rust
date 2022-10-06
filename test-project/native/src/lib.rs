@@ -157,7 +157,6 @@ impl RustTest {
 
             for i in 0..actions.size() {
                 let action = &actions[i];
-                let action = StringName::from(action);
                 out!(
                     "action {i}: {}",
                     <GodotString as From<&StringName>>::from(&action)
